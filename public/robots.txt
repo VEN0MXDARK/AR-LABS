@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ven0mxdark.github.io/AR-LABS/sitemap.xml

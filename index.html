@@ -2,11 +2,42 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script type="text/javascript">
+      // Single Page Apps for GitHub Pages — https://github.com/rafgraph/spa-github-pages
+      // Restores the real path (encoded by public/404.html) before React Router mounts.
+      (function (l) {
+        if (l.search[1] === '/') {
+          var decoded = l.search.slice(1).split('&').map(function (s) {
+            return s.replace(/~and~/g, '&');
+          }).join('?');
+          window.history.replaceState(null, null, l.pathname.slice(0, -1) + decoded + l.hash);
+        }
+      }(window.location));
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="AR Labs — Pioneering the frontier of augmented intelligence and next-generation AI infrastructure." />
+    <!--
+      Baseline CSP via meta tag (GitHub Pages can't set real HTTP headers).
+      script-src allows 'unsafe-inline' because the two inline scripts below
+      (SPA routing decode + preloader) can't use nonces on a static host and
+      a hash-based policy risks silently breaking the routing script on any
+      future edit without a build step to regenerate the hash. Tightening
+      this later needs that build step, not a hand-maintained hash.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; base-uri 'self'; form-action 'self'; object-src 'none';" />
+    <link rel="canonical" id="canonical-link" href="https://ven0mxdark.github.io/AR-LABS/" />
+    <meta property="og:site_name" content="AR Labs" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="AR LABS — Next-Gen AI Platform" />
+    <meta property="og:description" content="AR Labs — Pioneering the frontier of augmented intelligence and next-generation AI infrastructure." />
+    <meta property="og:url" content="https://ven0mxdark.github.io/AR-LABS/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="AR LABS — Next-Gen AI Platform" />
+    <meta name="twitter:description" content="AR Labs — Pioneering the frontier of augmented intelligence and next-generation AI infrastructure." />
     <title>AR LABS — Next-Gen AI Platform</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" />
     <style>
       html, body, #root { width: 100%; height: 100%; margin: 0; padding: 0; background: #05010f; }
 
