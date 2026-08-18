@@ -324,15 +324,6 @@ button { cursor: pointer; }
   /* height comes from parent stretch — full viewport height */
 }
 
-.hero-globe-placeholder {
-  width: 100%; height: 100%;
-  max-width: 420px; max-height: 420px;
-  margin: auto;
-  border-radius: 50%;
-  background: radial-gradient(circle at 50% 45%, rgba(170,40,255,0.35), rgba(0,180,255,0.12) 55%, transparent 75%);
-  filter: blur(2px);
-}
-
 /* ════════════════════════════════════════════════════
    FEATURES
 ════════════════════════════════════════════════════ */
@@ -514,6 +505,88 @@ button { cursor: pointer; }
   font-weight: 600;
   letter-spacing: 0.10em;
   color: var(--cyan);
+}
+
+/* ── Testimonial card ── */
+.stars {
+  display: flex;
+  gap: 0.2rem;
+}
+.stars svg { width: 15px; height: 15px; }
+
+.testimonial-quote {
+  font-size: 0.92rem;
+  color: var(--text);
+  line-height: 1.65;
+  font-style: italic;
+}
+
+.testimonial-role {
+  font-family: var(--font-alt);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+/* ════════════════════════════════════════════════════
+   GET IN TOUCH
+════════════════════════════════════════════════════ */
+.contact {
+  position: relative;
+  z-index: 1;
+  padding: 1rem clamp(2rem, 5vw, 4rem) 5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.contact-form {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.contact-sub {
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 0.4rem;
+}
+
+.contact-input,
+.contact-textarea {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.88rem;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.contact-input::placeholder,
+.contact-textarea::placeholder { color: var(--text-muted); }
+.contact-input:focus,
+.contact-textarea:focus {
+  outline: none;
+  border-color: var(--cyan-dim);
+  background: var(--surface-2);
+}
+.contact-textarea { resize: vertical; min-height: 84px; }
+
+.contact-submit {
+  align-self: center;
+  margin-top: 0.2rem;
+}
+.contact-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 /* ════════════════════════════════════════════════════
