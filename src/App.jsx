@@ -1,7 +1,11 @@
-import { useRef, useMemo, useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
+import { useRef, useEffect, useState, lazy, Suspense } from 'react'
+import { motion, useScroll, useTransform } from 'framer-motion'
 import './index.css'
 import whatsappCrmImg from './assets/whatsapp-crm.jpg'
+import { usePerfTier } from './hooks/usePerfTier'
+import { useTilt3D } from './hooks/useTilt3D'
+
+const HeroGlobe = lazy(() => import('./three/HeroGlobe.jsx'))
 
 const WHATSAPP_LINK = 'https://wa.me/message/HYIOIGP6X36HJ1'
 
@@ -27,6 +31,8 @@ function formatPrice(currency) {
 ═══════════════════════════════════════════════ */
 function BackgroundCanvas() {
   const ref = useRef()
+  const { reducedMotion } = usePerfTier()
+
   useEffect(() => {
     const canvas = ref.current
     const ctx = canvas.getContext('2d')
@@ -59,210 +65,21 @@ function BackgroundCanvas() {
     window.addEventListener('resize', draw)
     return () => window.removeEventListener('resize', draw)
   }, [])
-  return <canvas ref={ref} className="bg-canvas" />
-}
 
-/* ═══════════════════════════════════════════════
-   GLOBE — pure 2D canvas with perspective projection
-   Matches the AETHER reference exactly:
-   - Icosahedron wireframe (42 nodes, 120 edges)
-   - Depth-modulated brightness
-   - Purple radial inner glow
-   - Equatorial cyan ring + tilted purple ring
-   - Glow via shadowBlur
-═══════════════════════════════════════════════ */
-function GlobeCanvas() {
-  const ref = useRef()
-  const animRef = useRef()
-
+  /* Subtle parallax drift opposite the cursor, for depth vs. foreground content. */
   useEffect(() => {
+    if (reducedMotion) return
     const canvas = ref.current
-    const ctx = canvas.getContext('2d')
-
-    /* ── Build icosahedron geometry ── */
-    const PHI = (1 + Math.sqrt(5)) / 2
-    let verts = [
-      [-1, PHI, 0],[1, PHI, 0],[-1,-PHI, 0],[1,-PHI, 0],
-      [ 0,-1, PHI],[0,  1, PHI],[ 0,-1,-PHI],[0,  1,-PHI],
-      [ PHI, 0,-1],[PHI, 0, 1],[-PHI, 0,-1],[-PHI, 0, 1],
-    ].map(([x,y,z]) => { const l=Math.sqrt(x*x+y*y+z*z); return [x/l,y/l,z/l] })
-
-    let faces = [
-      [0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],
-      [1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],
-      [3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],
-      [4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1],
-    ]
-
-    // One subdivision → 42 vertices, 80 faces, 120 edges
-    const midCache = {}
-    const getMid = (a, b) => {
-      const key = a < b ? `${a}_${b}` : `${b}_${a}`
-      if (midCache[key] != null) return midCache[key]
-      const [x1,y1,z1] = verts[a], [x2,y2,z2] = verts[b]
-      const mx=(x1+x2)/2, my=(y1+y2)/2, mz=(z1+z2)/2
-      const l = Math.sqrt(mx*mx+my*my+mz*mz)
-      verts.push([mx/l, my/l, mz/l])
-      return (midCache[key] = verts.length - 1)
+    const onMove = (e) => {
+      const dx = (e.clientX / window.innerWidth  - 0.5) * -14
+      const dy = (e.clientY / window.innerHeight - 0.5) * -14
+      canvas.style.transform = `translate(${dx}px, ${dy}px) scale(1.02)`
     }
-    const subFaces = []
-    faces.forEach(([a,b,c]) => {
-      const ab=getMid(a,b), bc=getMid(b,c), ca=getMid(c,a)
-      subFaces.push([a,ab,ca],[b,bc,ab],[c,ca,bc],[ab,bc,ca])
-    })
-    faces = subFaces
+    window.addEventListener('pointermove', onMove)
+    return () => window.removeEventListener('pointermove', onMove)
+  }, [reducedMotion])
 
-    const edgeSet = new Set(); const edges = []
-    faces.forEach(([a,b,c]) => {
-      [[a,b],[b,c],[c,a]].forEach(([u,v]) => {
-        const k = u<v?`${u}_${v}`:`${v}_${u}`
-        if (!edgeSet.has(k)) { edgeSet.add(k); edges.push([u,v]) }
-      })
-    })
-
-    /* ── Canvas sizing ── */
-    let W, H, CX, CY, R
-    const resize = () => {
-      if (!canvas.parentElement) return
-      W = canvas.width  = canvas.parentElement.clientWidth
-      H = canvas.height = canvas.parentElement.clientHeight
-      CX = W * 0.5; CY = H * 0.5
-      R  = Math.min(W, H) * 0.30
-    }
-    resize()
-    window.addEventListener('resize', resize)
-
-    /* ── Draw loop ── */
-    const draw = (ts) => {
-      if (!W) { animRef.current = requestAnimationFrame(draw); return }
-      ctx.clearRect(0, 0, W, H)
-
-      const t   = ts * 0.001
-      const rotY  = t * 0.20
-      const tiltX = 0.18 + Math.sin(t * 0.07) * 0.04
-
-      const cosY=Math.cos(rotY), sinY=Math.sin(rotY)
-      const cosTX=Math.cos(tiltX), sinTX=Math.sin(tiltX)
-
-      const project = ([nx,ny,nz]) => {
-        // Rotate around Y
-        const px  =  nx*cosY + nz*sinY
-        const pz  = -nx*sinY + nz*cosY
-        // Tilt around X
-        const fpy = ny*cosTX - pz*sinTX
-        const fpz = ny*sinTX + pz*cosTX
-        return {
-          sx: CX + px*R,
-          sy: CY + fpy*R,
-          depth: (fpz + 1) / 2,   // 0=back 1=front
-          z: fpz,
-        }
-      }
-
-      const proj = verts.map(project)
-
-      /* ── 1. Inner glow sphere ── */
-      const grd = ctx.createRadialGradient(CX, CY, 0, CX, CY, R*0.95)
-      grd.addColorStop(0,    'rgba(170, 40, 255, 0.96)')
-      grd.addColorStop(0.30, 'rgba(120, 10, 230, 0.78)')
-      grd.addColorStop(0.58, 'rgba(75,   0, 170, 0.48)')
-      grd.addColorStop(0.80, 'rgba(35,   0, 100, 0.18)')
-      grd.addColorStop(1,    'rgba(8,    0,  30, 0.00)')
-      ctx.fillStyle = grd
-      ctx.beginPath(); ctx.arc(CX, CY, R*0.95, 0, Math.PI*2); ctx.fill()
-
-      /* ── 2. Ring 1 BACK (equatorial cyan) ── */
-      ctx.save()
-      ctx.globalAlpha = 0.50
-      ctx.strokeStyle = '#00d4ff'; ctx.lineWidth = 1.8
-      ctx.shadowColor  = '#00d4ff'; ctx.shadowBlur = 10
-      ctx.beginPath()
-      ctx.ellipse(CX, CY, R*1.30, R*0.20, 0, Math.PI, Math.PI*2)
-      ctx.stroke()
-      ctx.restore()
-
-      /* ── 3. Ring 2 BACK (tilted purple) ── */
-      ctx.save()
-      ctx.translate(CX, CY); ctx.rotate(-0.32)
-      ctx.globalAlpha = 0.50
-      ctx.strokeStyle = '#aa44ff'; ctx.lineWidth = 1.4
-      ctx.shadowColor  = '#aa44ff'; ctx.shadowBlur = 8
-      ctx.beginPath()
-      ctx.ellipse(0, 0, R*1.44, R*0.52, 0, Math.PI, Math.PI*2)
-      ctx.stroke()
-      ctx.restore()
-
-      /* ── 4. Network EDGES (depth-modulated) ── */
-      ctx.lineCap = 'round'
-      edges.forEach(([i,j]) => {
-        const a = proj[i], b = proj[j]
-        const d = (a.depth + b.depth) * 0.5
-        ctx.shadowColor = '#00c8e0'
-        ctx.shadowBlur  = 2 + d*5
-        ctx.strokeStyle = `rgba(0,210,238,${(d*0.62+0.10).toFixed(2)})`
-        ctx.lineWidth   = 0.85 + d*0.65
-        ctx.beginPath(); ctx.moveTo(a.sx,a.sy); ctx.lineTo(b.sx,b.sy); ctx.stroke()
-      })
-
-      /* ── 5. Network NODES (back→front) ── */
-      const sorted = [...proj].sort((a,b) => a.z - b.z)
-      sorted.forEach(p => {
-        const r     = 2.8 + p.depth * 5.5
-        const alpha = p.depth * 0.75 + 0.25
-
-        // Outer glow
-        ctx.shadowColor = '#00e5ff'
-        ctx.shadowBlur  = 8 + p.depth * 16
-        ctx.fillStyle   = `rgba(0,210,255,${(alpha*0.60).toFixed(2)})`
-        ctx.beginPath(); ctx.arc(p.sx, p.sy, r*1.7, 0, Math.PI*2); ctx.fill()
-
-        // Bright core
-        ctx.shadowBlur  = 0
-        ctx.fillStyle   = `rgba(210,248,255,${alpha.toFixed(2)})`
-        ctx.beginPath(); ctx.arc(p.sx, p.sy, r*0.55, 0, Math.PI*2); ctx.fill()
-      })
-
-      /* ── 6. Ring 1 FRONT (equatorial cyan) ── */
-      ctx.save()
-      ctx.globalAlpha = 0.92
-      ctx.strokeStyle = '#00d4ff'; ctx.lineWidth = 2.2
-      ctx.shadowColor  = '#00d4ff'; ctx.shadowBlur = 15
-      ctx.beginPath()
-      ctx.ellipse(CX, CY, R*1.30, R*0.20, 0, 0, Math.PI)
-      ctx.stroke()
-      ctx.restore()
-
-      /* ── 7. Ring 2 FRONT (tilted purple) ── */
-      ctx.save()
-      ctx.translate(CX, CY); ctx.rotate(-0.32)
-      ctx.globalAlpha = 0.82
-      ctx.strokeStyle = '#bb55ff'; ctx.lineWidth = 1.7
-      ctx.shadowColor  = '#bb55ff'; ctx.shadowBlur = 13
-      ctx.beginPath()
-      ctx.ellipse(0, 0, R*1.44, R*0.52, 0, 0, Math.PI)
-      ctx.stroke()
-      ctx.restore()
-
-      /* ── 8. Outer ambient halo ── */
-      const halo = ctx.createRadialGradient(CX, CY, R*0.85, CX, CY, R*1.65)
-      halo.addColorStop(0,   'rgba(0,100,200,0.00)')
-      halo.addColorStop(0.5, 'rgba(0, 90,200,0.06)')
-      halo.addColorStop(1,   'rgba(0, 40,140,0.00)')
-      ctx.fillStyle = halo
-      ctx.globalAlpha = 1
-      ctx.beginPath(); ctx.arc(CX, CY, R*1.65, 0, Math.PI*2); ctx.fill()
-
-      animRef.current = requestAnimationFrame(draw)
-    }
-
-    animRef.current = requestAnimationFrame(draw)
-    return () => {
-      window.removeEventListener('resize', resize)
-      cancelAnimationFrame(animRef.current)
-    }
-  }, [])
-
-  return <canvas ref={ref} style={{ width:'100%', height:'100%', display:'block' }} />
+  return <canvas ref={ref} className="bg-canvas" />
 }
 
 /* ═══════════════════════════════════════════════
@@ -296,13 +113,17 @@ const FEATURES = [
 ]
 
 function FeatureCard({ icon, color, title, desc, index }) {
+  const { reducedMotion } = usePerfTier()
+  const tilt = useTilt3D()
   return (
     <motion.div
       className="feat-card"
-      initial={{ opacity: 0, y: 22 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      style={{ rotateX: tilt.rotateX, rotateY: tilt.rotateY, transformPerspective: 800 }}
+      initial={{ opacity: 0, y: 22, rotateX: reducedMotion ? 0 : -8 }}
+      whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.48, delay: index * 0.10 }}
+      {...tilt.handlers}
     >
       <div className="feat-icon" style={{ color }}>{icon}</div>
       <h3 className="feat-title">{title}</h3>
@@ -315,19 +136,29 @@ function FeatureCard({ icon, color, title, desc, index }) {
    FEATURED PRODUCT CARD (image + price, click → WhatsApp)
 ═══════════════════════════════════════════════ */
 function ProductCard({ currency }) {
+  const { reducedMotion } = usePerfTier()
+  const tilt = useTilt3D()
   return (
     <motion.a
       href={WHATSAPP_LINK}
       target="_blank"
       rel="noopener noreferrer"
       className="product-card"
-      initial={{ opacity: 0, y: 22 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      style={{ rotateX: tilt.rotateX, rotateY: tilt.rotateY, transformPerspective: 800 }}
+      initial={{ opacity: 0, y: 22, rotateX: reducedMotion ? 0 : -8 }}
+      whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
+      whileHover={{ y: -4 }}
       viewport={{ once: true }}
       transition={{ duration: 0.48 }}
+      {...tilt.handlers}
     >
       <div className="product-media">
-        <img src={whatsappCrmImg} alt="WhatsApp CRM" className="product-img" />
+        <motion.img
+          src={whatsappCrmImg} alt="WhatsApp CRM" className="product-img"
+          style={{ x: tilt.driftX, y: tilt.driftY }}
+          whileHover={{ scale: 1.05 }}
+          transition={{ duration: 0.4 }}
+        />
         <span className="product-price">{formatPrice(currency)}</span>
       </div>
       <div className="product-body">
@@ -373,16 +204,21 @@ const ICON_PRODUCTS = [
 ]
 
 function IconProductCard({ icon, color, title, desc, currency, index }) {
+  const { reducedMotion } = usePerfTier()
+  const tilt = useTilt3D()
   return (
     <motion.a
       href={WHATSAPP_LINK}
       target="_blank"
       rel="noopener noreferrer"
       className="feat-card linkable"
-      initial={{ opacity: 0, y: 22 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      style={{ rotateX: tilt.rotateX, rotateY: tilt.rotateY, transformPerspective: 800 }}
+      initial={{ opacity: 0, y: 22, rotateX: reducedMotion ? 0 : -8 }}
+      whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
+      whileHover={{ y: -4 }}
       viewport={{ once: true }}
       transition={{ duration: 0.48, delay: index * 0.10 }}
+      {...tilt.handlers}
     >
       <div className="feat-icon" style={{ color }}>{icon}</div>
       <h3 className="feat-title">{title}</h3>
@@ -422,13 +258,17 @@ const BLOG_POSTS = [
 ]
 
 function BlogCard({ date, title, desc, index }) {
+  const { reducedMotion } = usePerfTier()
+  const tilt = useTilt3D()
   return (
     <motion.div
       className="feat-card"
-      initial={{ opacity: 0, y: 22 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      style={{ rotateX: tilt.rotateX, rotateY: tilt.rotateY, transformPerspective: 800 }}
+      initial={{ opacity: 0, y: 22, rotateX: reducedMotion ? 0 : -8 }}
+      whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.48, delay: index * 0.10 }}
+      {...tilt.handlers}
     >
       <span className="blog-date">{date}</span>
       <h3 className="feat-title">{title}</h3>
@@ -487,18 +327,24 @@ function CurrencySwitcher({ currency, setCurrency }) {
    WHATSAPP FLOATING BUTTON
 ═══════════════════════════════════════════════ */
 function WhatsAppButton() {
+  const { reducedMotion } = usePerfTier()
   return (
-    <a
+    <motion.a
       href={WHATSAPP_LINK}
       target="_blank"
       rel="noopener noreferrer"
       className="whatsapp-fab"
       aria-label="Chat on WhatsApp"
+      animate={reducedMotion ? undefined : { y: [0, -6, 0] }}
+      transition={reducedMotion ? undefined : { duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
+      whileHover={{ scale: 1.08, rotate: -6 }}
+      whileTap={{ scale: 0.94 }}
     >
+      {!reducedMotion && <span className="whatsapp-ping" aria-hidden />}
       <svg viewBox="0 0 32 32" fill="currentColor">
         <path d="M16.004 3C9.377 3 4 8.373 4 15c0 2.34.66 4.523 1.804 6.383L4 29l7.805-1.77A11.94 11.94 0 0 0 16.004 27C22.63 27 28 21.627 28 15S22.63 3 16.004 3Zm0 21.818a9.78 9.78 0 0 1-4.99-1.365l-.358-.213-4.632 1.05 1.04-4.512-.234-.37A9.77 9.77 0 0 1 6.182 15c0-5.415 4.407-9.818 9.822-9.818S25.818 9.585 25.818 15 21.42 24.818 16.004 24.818Zm5.4-7.34c-.296-.148-1.75-.864-2.02-.963-.272-.099-.47-.148-.667.148-.198.297-.766.963-.94 1.161-.173.198-.346.223-.642.075-.297-.148-1.253-.462-2.386-1.472-.882-.787-1.478-1.76-1.651-2.057-.173-.297-.018-.457.13-.605.134-.133.297-.347.445-.52.148-.174.198-.297.297-.495.099-.198.05-.372-.025-.52-.074-.148-.667-1.607-.914-2.202-.24-.579-.484-.5-.667-.51-.173-.008-.371-.01-.569-.01-.198 0-.52.075-.792.372-.272.297-1.04 1.016-1.04 2.478 0 1.462 1.065 2.874 1.213 3.072.148.198 2.096 3.2 5.078 4.488.71.306 1.263.489 1.694.626.712.227 1.36.195 1.872.118.571-.085 1.75-.715 1.996-1.406.247-.69.247-1.283.173-1.406-.074-.124-.272-.198-.568-.347Z"/>
       </svg>
-    </a>
+    </motion.a>
   )
 }
 
@@ -507,10 +353,29 @@ function WhatsAppButton() {
 ═══════════════════════════════════════════════ */
 export default function App() {
   const [currency, setCurrency] = useState('PKR')
+  const { reducedMotion } = usePerfTier()
+
+  /* Cursor-driven ambient page spotlight — CSS vars, not React state, to avoid a re-render per mousemove. */
+  useEffect(() => {
+    if (reducedMotion) return
+    const onMove = (e) => {
+      document.documentElement.style.setProperty('--mx', `${e.clientX}px`)
+      document.documentElement.style.setProperty('--my', `${e.clientY}px`)
+    }
+    window.addEventListener('pointermove', onMove)
+    return () => window.removeEventListener('pointermove', onMove)
+  }, [reducedMotion])
+
+  /* Scroll-linked hero exit, fading/shrinking as the user scrolls toward products. */
+  const heroRef = useRef(null)
+  const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] })
+  const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, reducedMotion ? 1 : 0.35])
+  const heroScale   = useTransform(scrollYProgress, [0, 1], [1, reducedMotion ? 1 : 0.94])
 
   return (
     <div className="site">
       <BackgroundCanvas />
+      {!reducedMotion && <div className="cursor-glow" aria-hidden />}
 
       {/* ══ NAVBAR ══ */}
       <nav className="navbar">
@@ -550,7 +415,7 @@ export default function App() {
       </nav>
 
       {/* ══ HERO ══ */}
-      <section className="hero">
+      <motion.section className="hero" ref={heroRef} style={{ opacity: heroOpacity, scale: heroScale }}>
         <div className="hero-text">
           <motion.h1 className="hero-heading"
             initial={{ opacity:0, x:-36 }} animate={{ opacity:1, x:0 }}
@@ -572,11 +437,13 @@ export default function App() {
           </motion.div>
         </div>
 
-        {/* 2D canvas globe — no Three.js, pixel-perfect control */}
+        {/* Real Three.js/R3F scene — lazy-loaded so it doesn't block hero text paint */}
         <div className="hero-globe" aria-hidden>
-          <GlobeCanvas />
+          <Suspense fallback={<div className="hero-globe-placeholder" />}>
+            <HeroGlobe />
+          </Suspense>
         </div>
-      </section>
+      </motion.section>
 
       {/* ══ PRODUCTS ══ */}
       <section className="features" id="products">
