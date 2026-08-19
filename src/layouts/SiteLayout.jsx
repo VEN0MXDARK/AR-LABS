@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 import BackgroundCanvas from '../components/BackgroundCanvas'
 import Navbar from '../components/nav/Navbar'
 import WhatsAppButton from '../components/WhatsAppButton'
@@ -55,12 +55,12 @@ export default function SiteLayout() {
           <div className="footer-main">
             <span className="footer-brand">AR // LABS</span>
             <nav className="footer-links" aria-label="Footer">
-              <a href="/#products">Products</a>
-              <a href="/blog">Blog</a>
-              <a href="/pricing">Pricing</a>
-              <a href="/about">About</a>
-              <a href="/faq">FAQ</a>
-              <a href="/privacy">Privacy</a>
+              <Link to="/#products">Products</Link>
+              <Link to="/blog">Blog</Link>
+              <Link to="/pricing">Pricing</Link>
+              <Link to="/about">About</Link>
+              <Link to="/faq">FAQ</Link>
+              <Link to="/privacy">Privacy</Link>
             </nav>
             <div className="footer-social" aria-label="Social links (coming soon)">
               {/* TODO: real social URLs not supplied yet — placeholders only */}
