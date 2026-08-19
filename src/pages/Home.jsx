@@ -39,7 +39,7 @@ export default function Home() {
   const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, reducedMotion ? 1 : 0.35])
   const heroScale   = useTransform(scrollYProgress, [0, 1], [1, reducedMotion ? 1 : 0.94])
 
-  const imageProduct = PRODUCTS.find((p) => p.image)
+  const imageProducts = PRODUCTS.filter((p) => p.image)
   const iconProducts = PRODUCTS.filter((p) => !p.image)
   const latestPosts = BLOG_POSTS.slice(0, 3)
 
@@ -87,7 +87,7 @@ export default function Home() {
           products
         </motion.h2>
         <div className="features-grid">
-          {imageProduct && <ImageProductCard product={imageProduct} />}
+          {imageProducts.map((p) => <ImageProductCard key={p.slug} product={p} />)}
           {iconProducts.map((p, i) => <IconProductCard key={p.slug} product={p} index={i} />)}
         </div>
       </section>

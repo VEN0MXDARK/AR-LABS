@@ -1,4 +1,6 @@
 import whatsappCrmImg from '../assets/whatsapp-crm.jpg'
+import webScraperImg from '../assets/web-scraper.jpg'
+import localLlmAiImg from '../assets/local-llm-ai.jpg'
 
 /* icon/image + short desc match what's already said elsewhere on the site —
    longDesc and features expand on that without inventing new claims. */
@@ -27,7 +29,7 @@ export const PRODUCTS = [
     longDesc:
       'Point Web Scraper at a site and get back clean, structured data instead of raw HTML — ' +
       'built for teams who need a steady feed of external data without maintaining scraping scripts by hand.',
-    iconKey: 'scraper',
+    image: webScraperImg,
     color: '#22cc88',
     priced: true,
     features: [
@@ -44,7 +46,7 @@ export const PRODUCTS = [
       'Local LLM AI runs entirely on your own hardware. Nothing you feed it leaves your device, ' +
       'which matters if your data — customer conversations, internal documents, anything sensitive — ' +
       'can\'t sit on someone else\'s server.',
-    iconKey: 'chip',
+    image: localLlmAiImg,
     color: '#00d4aa',
     priced: true,
     features: [
